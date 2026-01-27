@@ -2,7 +2,14 @@
 
 ## 1. System Overview
 
-Operation Sentinel employs a **Hybrid Cortex Architecture**, a control paradigm that decouples deterministic flight stability from stochastic mission planning. This separation of concerns ensures that the platform maintains flight safety and physics integrity even if the high-level decision agent experiences uncertainty or latency.
+Operation Sentinel employs a **Hybrid Cortex Architecture**, a control paradigm that decouples deterministic flight stability from stochastic mission planning.
+
+### 💡 In Plain English
+> Think of the system like a human pilot:
+> *   **Reflex Layer (The "Spinal Cord"):** Handles muscle movements, balance, and instant reactions to wind gusts. It doesn't "think"—it just keeps the drone flying.
+> *   **Mission Layer (The "Brain"):** Uses eyes (cameras/LiDAR) to spot obstacles and decide *where* to go. It plans the path, but trusts the Reflex Layer to execute the actual flying.
+
+---
 
 ### 1.1 The Hybrid Cortex Concept
 
@@ -74,15 +81,17 @@ graph TD
 
     %% Data Flow
     World -->|Ray Tracing| Gazebo
-    Gazebo -->|LiDAR Data Point Cloud| Flight_Core
-    Flight_Core -->|Telemetry Stream 50Hz| MavSDK
-    MavSDK -->|Normalized State| LiDAR_Proc
-    LiDAR_Proc -->|Tensor [360]| PPO_Agent
+    Gazebo -.->|High-Bandwidth LiDAR Data| LiDAR_Proc
+    Gazebo -->|IMU/GPS Sensor Data| Flight_Core
+    
+    Flight_Core -->|Telemetry State (Pose/Vel)| MavSDK
+    MavSDK -->|Normalized State Vector| PPO_Agent
+    LiDAR_Proc -->|Spatial Tensor [360]| PPO_Agent
     
     PPO_Agent -->|Action Vector [Vx,Vy,Vz,Yaw]| MavSDK
     MavSDK -->|Offboard Velocity Cmd| MavLink_Server
     MavLink_Server -->|Mixer Inputs| Flight_Core
-    Flight_Core -->|Motor PWM| Gazebo
+    Flight_Core -->|Motor PWM Signals| Gazebo
 
     classDef sim fill:#da3633,stroke:#fff,color:#fff;
 ```

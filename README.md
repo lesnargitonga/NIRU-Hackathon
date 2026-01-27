@@ -9,11 +9,19 @@
 
 ---
 
-## System Abstract
+## System Overview
 
-Operation Sentinel is a high-fidelity autonomous aerial defense platform designed for GPS-denied environments. It integrates a **Hybrid Cortex Architecture**, coupling a deterministic reflex layer (PX4 Autopilot) with a stochastic mission layer (Deep Reinforcement Learning) to achieve robust navigation and surveillance capabilities without reliance on external connectivity or cloud infrastructure.
+**Operation Sentinel** is an autonomous drone system designed to defend secure perimeters without needing a human pilot or GPS.
 
-This system prioritizes operational security (OPSEC) by processing all sensor data on-board, ensuring zero data leakage and maintaining full functionality in RF-contested zones.
+### ❓ What problem does this solve?
+Traditional drones rely on GPS (which can be jammed) and human pilots (who get tired). Sentinel uses **on-board AI** to "see" and navigate its environment using lasers (LiDAR) and cameras, making it unjammable and fully autonomous.
+
+### 🛡️ Key Features for Assessors
+*   **Works Offline:** No internet or cloud connection required.
+*   **Hard to Jam:** Uses visual navigation instead of just GPS.
+*   **Safe by Design:** A dedicated "Reflex Layer" prevents crashes even if the AI gets confused.
+
+---
 
 ## Core Capabilities
 
