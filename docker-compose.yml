@@ -1,0 +1,45 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: lesnar
+      POSTGRES_USER: lesnar
+      POSTGRES_PASSWORD: lesnar
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - lesnar_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lesnar -d lesnar"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  adminer:
+    image: adminer:4
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+psycopg2://lesnar:lesnar@postgres:5432/lesnar
+      LESNAR_USE_AIRSIM: "0"
+      ALLOW_UNSAFE_WERKZEUG: "1"
+      AUTO_MIGRATE: "1"
+      # API key auth (set these to strong values for anything beyond local dev)
+      LESNAR_ADMIN_API_KEY: "change-me-admin"
+      LESNAR_OPERATOR_API_KEY: "change-me-operator"
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  lesnar_postgres:

@@ -1,0 +1,135 @@
+# Lesnar AI – Training Pipeline
+
+This folder contains scripts to preprocess datasets, collect synthetic AirSim data, and train models for segmentation, supervised navigation, and RL.
+
+## 1) Setup
+
+Install dependencies into your AirSim env (or a new venv):
+
+```powershell
+# Optional: create a new venv
+# python -m venv .venv; .\.venv\Scripts\Activate.ps1
+pip install -r training/requirements.txt
+```
+
+## 2) Dataset Preprocessing
+
+Unify external datasets under a common format (RGB + Depth + Pose), normalized to a fixed resolution and FPS:
+
+```powershell
+python training/preprocess_datasets.py --roots D:\datasets\TUM_RGBD D:\datasets\KITTI --out D:\datasets\unified --width 640 --height 360 --fps 10 --src_fps 30
+```
+
+The script writes to `D:\datasets\unified/<dataset>/<sequence>/` with:
+- `rgb/*.png`
+- `depth/*.png` (16-bit depth where available)
+- `poses.json`
+
+## 3) Collect Synthetic Data from AirSim
+
+```powershell
+python training/collect_airsim_dataset.py --out D:\datasets\airsim_synth --duration 120 --hz 5
+```
+
+This captures `rgb/`, `depth/`, and `poses.json` using the front camera.
+
+## 4) Train Segmentation (Perception)
+
+Prepare `masks/` under your dataset root, then:
+
+```powershell
+python training/train_segmentation.py --data D:\datasets\unified\KITTI\seq_00 --epochs 10 --bs 4 --lr 1e-3 --out models/seg_unet.pt
+```
+
+## 5) Supervised Navigation (CNN+LSTM)
+
+If you have recorded actions per frame in `actions/*.npy` (vx, vy, yaw_rate):
+
+```powershell
+python training/train_navigation.py --data D:\datasets\airsim_synth --epochs 10 --bs 8 --seq_len 4 --out models/vision_nav.pt
+```
+
+## 6) Reinforcement Learning in AirSim
+
+Start AirSim, then train PPO on the Gym environment:
+
+```powershell
+python training/train_rl.py --steps 20000 --out models/ppo_airsim
+```
+
+## 7) Integrate with Autonomy
+
+Use your trained policy to compute actions from live frames and send with AirSim’s `moveByVelocityAsync`. See `airsim/vfh_avoid_multi.py` for a robust reactive baseline; you can hybridize: policy suggests action, VFH adds safety.
+
+## 8) Tips
+
+- Start with low camera resolutions and 5–10 Hz loops for stability.
+- Use `training/preprocess_datasets.py` to normalize all inputs.
+- Keep training logs in TensorBoard (`tensorboard --logdir runs`).# AirSim Segmentation Training (PyTorch)
+
+End-to-end steps to train a UNet model from AirSim data and use it in autonomy.
+
+## 1) Configure segmentation IDs in AirSim
+
+In VS Code terminal (Unreal must be in Play):
+
+```powershell
+Set-Location "D:\docs\lesnar\Lesnar AI"
+.\airsim-env\Scripts\python.exe .\airsim\setup_segmentation_ids.py
+```
+
+This sets free space (ground/road) to ID 0 and obstacles to ID 1.
+
+## 2) Collect a dataset
+
+```powershell
+# Collect train split (moving)
+.\airsim-env\Scripts\python.exe .\training\collect_airsim_dataset.py --split train --count 1000 --move --sleep 0.05
+
+# Collect val split (stationary or slower)
+.\airsim-env\Scripts\python.exe .\training\collect_airsim_dataset.py --split val --count 200 --sleep 0.1
+```
+
+This creates:
+```
+dataset/
+  train/images/*.png
+  train/masks/*.png  (# IDs: 0=free, 1=obstacle)
+  val/images/*.png
+  val/masks/*.png
+```
+
+## 3) Train UNet (GPU if available)
+
+```powershell
+.\airsim-env\Scripts\python.exe .\training\pytorch_unet.py --data .\dataset --img_size 256 256 --batch 8 --epochs 20 --classes 1 --out .\runs\unet_airsim --base 32
+```
+
+Artifacts are saved under `runs\unet_airsim\`:
+- `last.pt`, `best.pt`: PyTorch state_dict
+- `model_ts.pt`: TorchScript export
+- `tb/`: TensorBoard logs
+
+Optional: launch TensorBoard
+```powershell
+.\airsim-env\Scripts\python.exe -m tensorboard --logdir .\runs\unet_airsim\tb
+```
+
+## 4) Use the trained model in autonomy
+
+Point the autonomy or demo to your trained weights:
+
+```powershell
+# Demo overlay
+.\airsim-env\Scripts\python.exe .\airsim\segmentation_demo.py --model .\runs\unet_airsim\best.pt --img_size 256 256 --invert_mask --avoid --auto_move
+
+# Full autonomy
+.\airsim-env\Scripts\python.exe .\airsim\segmentation_autonomy.py --model .\runs\unet_airsim\best.pt --img_size 256 256 --invert_mask --log_csv .\logs\seg_diag.csv
+```
+
+If the overlay looks inverted (free vs obstacle), keep `--invert_mask` on. If your masks are already 1=obstacle, you can omit it.
+
+## Tips
+- If masks look noisy, increase dataset size and vary viewpoints.
+- You can bump `--img_size` to 384 or 512 for better detail (ensure VRAM/RAM is sufficient).
+- If frames are too similar, increase movement patterns in the collector (strafe/yaw) or collect in different areas.

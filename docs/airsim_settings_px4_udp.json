@@ -1,0 +1,23 @@
+{
+  "SettingsVersion": 1.2,
+  "SimMode": "Multirotor",
+  "ClockSpeed": 1,
+  "Vehicles": {
+    "PX4": {
+      "VehicleType": "PX4",
+      "AutoCreate": true,
+      "UseTcp": false,
+      "UdpIp": "127.0.0.1",
+      "UdpPort": 14560,
+      "ControlPortLocal": 14540,
+      "Cameras": {
+        "0": {
+          "CaptureSettings": [
+            { "ImageType": 0, "FOV_Degrees": 90 },
+            { "ImageType": 3, "FOV_Degrees": 90 }
+          ]
+        }
+      }
+    }
+  }
+}

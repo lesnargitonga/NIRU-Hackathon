@@ -1,0 +1,46 @@
+{
+  "SettingsVersion": 1.2,
+  "SimMode": "Multirotor",
+  "ClockSpeed": 1,
+  "Vehicles": {
+    "SimpleFlight": {
+      "VehicleType": "SimpleFlight",
+      "AutoCreate": true,
+      "Cameras": {
+        "0": {
+          "CaptureSettings": [
+            {
+              "ImageType": 0,
+              "FOV_Degrees": 90
+            },
+            {
+              "ImageType": 3,
+              "FOV_Degrees": 90
+            }
+          ]
+        }
+      },
+      "Sensors": {
+        "Lidar360": {
+          "SensorType": 6,
+          "Enabled": true,
+          "NumberOfChannels": 1,
+          "PointsPerSecond": 20000,
+          "X": 0,
+          "Y": 0,
+          "Z": 0,
+          "Roll": 0,
+          "Pitch": 0,
+          "Yaw": 0,
+          "VerticalFOVUpper": 0,
+          "VerticalFOVLower": 0,
+          "HorizontalFOVStart": -180,
+          "HorizontalFOVEnd": 180,
+          "Range": 60,
+          "DrawDebugPoints": false,
+          "DataFrame": "SensorLocalFrame"
+        }
+      }
+    }
+  }
+}

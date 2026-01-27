@@ -1,0 +1,37 @@
+# System/Env
+.venv/
+airsim-env/
+backend-env/
+node_modules/
+__pycache__/
+*.pyc
+.DS_Store
+.vscode/
+.idea/
+
+# Large binaries & External Deps (The "Heavy" stuff)
+externals/
+airsim/
+drone_simulation/
+unreal_tools/
+.qodo/
+
+# Data & Logs
+datasets/
+dataset/
+data/
+logs/
+runs/
+lightning_logs/
+*.ulg
+*.bag
+*.npz
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Optional: Large models (uncomment if you want to exclude them)
+# models/*.pth
+# models/*.pt
