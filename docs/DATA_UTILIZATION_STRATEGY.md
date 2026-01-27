@@ -2,7 +2,12 @@
 
 ## Executive Summary
 
-This document defines the strategic framework for leveraging data assets within the Operation Sentinel ecosystem. The objective is to maximize operational intelligence through rigorous data ingestion, validation, and model training pipelines.
+This document defines the strategic framework for leveraging data assets within the Operation Sentinel ecosystem.
+
+### ⚡ At a Glance (For Assessors)
+*   **What we use:** Data from simulations (AirSim) and real sensors (LiDAR/Camera).
+*   **Why we use it:** To train the AI to recognize obstacles and landing zones without human help.
+*   **The Goal:** A drone that gets smarter with every flight, eventually flying completely on its own in unknown environments.
 
 ---
 

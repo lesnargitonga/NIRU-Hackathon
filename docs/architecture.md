@@ -81,14 +81,14 @@ graph TD
 
     %% Data Flow
     World -->|Ray Tracing| Gazebo
-    Gazebo -.->|High-Bandwidth LiDAR Data| LiDAR_Proc
-    Gazebo -->|IMU/GPS Sensor Data| Flight_Core
+    Gazebo -.->|LiDAR Point Cloud| LiDAR_Proc
+    Gazebo -->|IMU and GPS Data| Flight_Core
     
-    Flight_Core -->|Telemetry State (Pose/Vel)| MavSDK
+    Flight_Core -->|Telemetry State| MavSDK
     MavSDK -->|Normalized State Vector| PPO_Agent
-    LiDAR_Proc -->|Spatial Tensor [360]| PPO_Agent
+    LiDAR_Proc -->|Spatial Tensor 360| PPO_Agent
     
-    PPO_Agent -->|Action Vector [Vx,Vy,Vz,Yaw]| MavSDK
+    PPO_Agent -->|Action Vector Vx Vy Vz Yaw| MavSDK
     MavSDK -->|Offboard Velocity Cmd| MavLink_Server
     MavLink_Server -->|Mixer Inputs| Flight_Core
     Flight_Core -->|Motor PWM Signals| Gazebo
