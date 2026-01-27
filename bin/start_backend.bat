@@ -1,7 +1,7 @@
 @echo off
 echo Starting Lesnar AI Backend Server...
 setlocal
-set ROOT=%~dp0
+set ROOT=%~dp0..\
 set PY=%ROOT%backend-env\Scripts\python.exe
 
 :: ENABLE REAL AIRSIM CONNECTION

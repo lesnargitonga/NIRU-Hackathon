@@ -14,10 +14,9 @@ Operation Sentinel is a privacy-first, autonomous drone defense system. Unlike t
 * **Comms:** MavSDK (Python) -> MAVLink -> UDP 14540
 
 ## ⚡ Quick Start
-```bash
-# 1. Launch Simulation (Sentinel Core)
-make px4_sitl gz_x500_lidar_2d
+# 1. Setup Environment
+.\bin\setup.bat
 
-# 2. Launch AI (The Brain)
-python3 rl/test_flight.py
+# 2. Launch System (Sim + Brain + Dashboard)
+.\bin\start_all.bat
 ```

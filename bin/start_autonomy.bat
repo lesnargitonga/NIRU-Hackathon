@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableDelayedExpansion
 
-set ROOT=%~dp0
+set ROOT=%~dp0..\
 set AIRSIM_DIR=%ROOT%airsim\
 set SCRIPT=%AIRSIM_DIR%autonomy_controller.py
 

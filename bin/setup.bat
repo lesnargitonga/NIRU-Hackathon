@@ -5,7 +5,7 @@ echo ======================================
 echo.
 
 setlocal
-set ROOT=%~dp0
+set ROOT=%~dp0..\
 
 echo [1/3] Setting up backend Python venv...
 if not exist "%ROOT%backend-env\Scripts\python.exe" (

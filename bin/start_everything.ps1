@@ -5,7 +5,7 @@ param(
   [switch]$LowImpact,
   [int]$StaggerSeconds = 0
 )
-$script = Join-Path $PSScriptRoot 'scripts/start_everything.ps1'
+$script = Join-Path $PSScriptRoot '../scripts/start_everything.ps1'
 if (-not (Test-Path $script)) {
   Write-Error "Launcher not found: $script"
   exit 1
