@@ -110,51 +110,65 @@ Quick run:
 docker compose up --build -d
 ```
 
-2) Privacy recording
+2) Privacy recording / screenshot capture (demo of masking pipeline)
 ```
-& .\airsim-env\Scripts\python.exe .\airsim\record_images.py --out D:\datasets\airsim_synth --frames 200 --hz 5 --alt -5 --privacy --masks
-```
-
-3) Latency profile
-```
-& .\airsim-env\Scripts\python.exe .\scripts\compute_profiler.py --task seg --weights .\runs\unet_airsim\best.pt --speed_mps 5
+& .\.venv\Scripts\python.exe .\scripts\capture_screenshot.py --out .\data\privacy_demo.png
 ```
 
-4) Loss-of-Link monitor (run alongside autonomy)
+3) Latency profile (model speed vs safe blind distance)
 ```
-& .\airsim-env\Scripts\python.exe .\airsim\loss_of_link_failsafe.py --timeout_s 5
-```
-
-## PX4 Teacher Brain (SITL – Advanced)
-
-Use MAVSDK Offboard to collect high-quality demonstrations in PX4 SITL:
-
-1) Start PX4 SITL (WSL recommended)
-```
-# In WSL Ubuntu
-git clone https://github.com/PX4/PX4-Autopilot
-cd PX4-Autopilot
-git checkout v1.14.3
-git submodule update --init --recursive
-
-# Preferred (if Gazebo packages available)
-make px4_sitl gz
-
-# Fallback (simple, reliable)
-make px4_sitl jmavsim
+& .\.venv\Scripts\python.exe .\scripts\compute_profiler.py `
+	--task seg `
+	--weights .\runs\unet_airsim\best.pt `
+	--speed_mps 5
 ```
 
-2) Collect advanced demos (waypoints + obstacle-aware yaw)
+4) Loss-of-Link / audit writer (simulated)
 ```
-& .\.venv\Scripts\python.exe .\training\px4_teacher_collect_adv.py --system 127.0.0.1:14540 --waypoints .\training\px4_waypoints.json --out .\dataset\px4_teacher --duration 300 --hz 20 --alt 10 --base_speed 2 --max_speed 5 --yaw_rate_limit 45
-```
-
-3) Train the student
-```
-& .\.venv\Scripts\python.exe .\training\train_student_px4.py --data .\dataset\px4_teacher\telemetry_adv.csv --epochs 20 --bs 128 --out .\models\student_px4.pt
+& .\.venv\Scripts\python.exe .\scripts\timescale_writer.py --once
 ```
 
-EKF2 GPS-denied config: see `px4_config/gps_denied.params` and `px4/README.md` for application steps.
+## Teacher Brain – God-Mode (Offline Expert)
+
+When WSL / PX4 / Gazebo are not available or are unstable, you can still
+generate **expert demonstrations** using a pure-Python "God-Mode" teacher.
+
+This teacher:
+- Parses the exact world layout from `obstacles.sdf`.
+- Builds a 2D occupancy grid and plans globally using A*.
+- Follows the path with a pure-pursuit controller.
+- Simulates a perfect 360° LiDAR around the virtual drone.
+
+No simulation processes are required – everything runs in Python on Windows.
+
+1) Generate offline expert data
+```powershell
+Set-Location "D:\docs\lesnar\Lesnar AI"
+& "$Env:USERPROFILE\miniconda3\Scripts\conda.exe" run -n lesnar-ai-gpu `
+	python training/px4_teacher_collect_gz.py `
+		--duration 300 `
+		--offline `
+		--out dataset/px4_teacher/telemetry_god.csv
+```
+
+This produces a CSV with columns:
+- State: timestamp, rel_alt, vx, vy, vz, yaw
+- Commands: cmd_vx, cmd_vy, cmd_vz, cmd_yaw
+- Perception: lidar_min, lidar_json (72-beam 360° scan)
+- Mission context: goal_x, goal_y (current navigation target)
+
+2) Train the student on God-Mode data
+```powershell
+& .\.venv\Scripts\python.exe .\training\train_student_px4.py `
+	--data .\dataset\px4_teacher\telemetry_god.csv `
+	--epochs 20 `
+	--bs 128 `
+	--out .\models\student_px4_god.pt
+```
+
+You can still use the original PX4 SITL pipeline when WSL + Gazebo are
+available, but the offline God-Mode teacher lets you iterate on brains and
+architectures without fighting the simulator stack.
 
 ## GPU Setup (Windows, Conda)
 
@@ -166,6 +180,8 @@ Set-Location "D:\docs\lesnar\Lesnar AI"
 ```
 
 This creates the `lesnar-ai-gpu` environment with CUDA 12.1, verifies CUDA via `scripts/verify_cuda.py`, and will train automatically if `dataset\px4_teacher\telemetry_adv.csv` exists.
+
+If you generated Gazebo LiDAR data via WSL collector, point training to `dataset\px4_teacher\telemetry_gz.csv` instead.
 
 Troubleshooting:
 - If OpenCV fails to import with NumPy 2.x, pin NumPy to 1.26.4 in the Conda env.
