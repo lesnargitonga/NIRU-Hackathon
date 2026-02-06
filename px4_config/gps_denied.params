@@ -1,0 +1,14 @@
+# PX4 EKF2 GPS-denied configuration
+# Load via QGC → Parameters → Tools → Manage Parameter Files (PX4 .params format)
+
+EKF2_AID_MASK 2         # Optical Flow aiding
+EKF2_HGT_MODE 2         # Range sensor for height
+EKF2_GPS_CTRL 0         # Disable GPS fusion
+EKF2_OF_QMIN 0.10       # Min quality from flow sensor (0..1)
+EKF2_OF_NSE 0.30        # Flow measurement noise (rad/s)
+EKF2_RNG_AID 1          # Use range finder aiding
+EKF2_RNG_NOISE 0.10     # Range noise (m)
+EKF2_MAG_CTRL 1         # Keep mag fusion for yaw (optional)
+EKF2_EV_CTRL 0          # Disable external vision
+LPE_ENABLED 0           # Ensure EKF2 is used
+SYS_MC_EST_GROUP 2      # EKF2 estimator group (multirotor)

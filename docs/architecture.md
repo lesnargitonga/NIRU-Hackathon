@@ -54,44 +54,40 @@ The autonomous agent is a Neural Network trained via Proximal Policy Optimizatio
 ## 3. Data Flow Architecture
 
 ```mermaid
-graph TD
-    subgraph Host_Machine_WSL ["Compute Core: WSL2 Ubuntu"]
-        style Host_Machine_WSL fill:#1c2128,stroke:#444c56,color:#fff
+graph LR
+    subgraph Sim_Layer ["Simulation Environment"]
+        style Sim_Layer fill:#2d333b,stroke:#adbac7,color:#fff
+        Gazebo[Gazebo Harmonic<br/><i>Physics Engine</i>]:::sim
+        World[Synthetic World<br/><i>Generative Geometry</i>]:::sim
+    end
 
-        subgraph Sim_Layer ["Simulation Environment"]
-            style Sim_Layer fill:#2d333b,stroke:#adbac7,color:#fff
-            Gazebo[Gazebo Harmonic<br/><i>Physics Engine</i>]:::sim
-            World[Synthetic World<br/><i>Generative Geometry</i>]:::sim
-        end
+    subgraph Flight_Core ["Reflex Layer (PX4)"]
+        style Flight_Core fill:#1f6feb,stroke:#fff,color:#fff,stroke-width:2px
+        EKF2[EKF2 Estimator<br/><i>Sensor Fusion</i>]
+        Commander[Failsafe Commander<br/><i>Safety Layer</i>]
+        MavLink_Server[MAVLink Server<br/><i>UDP 14540</i>]
+    end
 
-        subgraph Flight_Core ["PX4 Autopilot (The Reflex Cortex)"]
-            style Flight_Core fill:#1f6feb,stroke:#fff,color:#fff,stroke-width:2px
-            EKF2[EKF2 Estimator<br/><i>Sensor Fusion</i>]
-            Commander[Failsafe Commander<br/><i>Safety Layer</i>]
-            MavLink_Server[MAVLink Server<br/><i>UDP 14540</i>]
-        end
-
-        subgraph Mission_Brain ["AI Agent (The Mission Cortex)"]
-            style Mission_Brain fill:#238636,stroke:#fff,color:#fff,stroke-width:2px
-            MavSDK[MavSDK-Python<br/><i>Bridge</i>]
-            PPO_Agent[PPO Neural Network<br/><i>Decision Engine</i>]
-            LiDAR_Proc[LiDAR Preprocessor<br/><i>Privacy Filter</i>]
-        end
+    subgraph Mission_Brain ["Mission Layer (AI Agent)"]
+        style Mission_Brain fill:#238636,stroke:#fff,color:#fff,stroke-width:2px
+        MavSDK[MavSDK-Python<br/><i>Bridge</i>]
+        PPO_Agent[PPO Neural Network<br/><i>Decision Engine</i>]
+        LiDAR_Proc[LiDAR Preprocessor<br/><i>Privacy Filter</i>]
     end
 
     %% Data Flow
     World -->|Ray Tracing| Gazebo
     Gazebo -.->|LiDAR Point Cloud| LiDAR_Proc
-    Gazebo -->|IMU and GPS Data| Flight_Core
+    Gazebo -->|IMU/GPS Data| Flight_Core
     
-    Flight_Core -->|Telemetry State| MavSDK
-    MavSDK -->|Normalized State Vector| PPO_Agent
-    LiDAR_Proc -->|Spatial Tensor 360| PPO_Agent
+    Flight_Core -->|Telemetry| MavSDK
+    MavSDK -->|State Vector| PPO_Agent
+    LiDAR_Proc -->|Tensor 360| PPO_Agent
     
-    PPO_Agent -->|Action Vector Vx Vy Vz Yaw| MavSDK
-    MavSDK -->|Offboard Velocity Cmd| MavLink_Server
-    MavLink_Server -->|Mixer Inputs| Flight_Core
-    Flight_Core -->|Motor PWM Signals| Gazebo
+    PPO_Agent -->|Action Vector| MavSDK
+    MavSDK -->|Velocity Cmd| MavLink_Server
+    MavLink_Server -->|Mixer| Flight_Core
+    Flight_Core -->|PWM| Gazebo
 
     classDef sim fill:#da3633,stroke:#fff,color:#fff;
 ```

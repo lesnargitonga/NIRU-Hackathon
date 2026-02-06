@@ -14,7 +14,7 @@
 **Operation Sentinel** is an autonomous drone system designed to defend secure perimeters without needing a human pilot or GPS.
 
 ### ❓ What problem does this solve?
-Traditional drones rely on GPS (which can be jammed) and human pilots (who get tired). Sentinel uses **on-board AI** to "see" and navigate its environment using lasers (LiDAR) and cameras, making it unjammable and fully autonomous.
+Traditional drones rely on GPS (which can be jammed) and human pilots (who get tired). Sentinel is the testbed for the **"Universal Cortex"**—a morphology-agnostic AI trained in the **"Omniverse Engine"** (infinite procedural worlds). It navigates using pure vision/LiDAR, making it unjammable and capable of operating in any environment.
 
 ### 🛡️ Key Features for Assessors
 *   **Works Offline:** No internet or cloud connection required.
@@ -92,3 +92,81 @@ To sequence the full system (Simulation, AI Agent, and Command Dashboard):
 ---
 
 *Copyright © 2026 Lesnar Autonomous Systems. All Rights Reserved.*
+
+---
+
+## Bridge to Reality – Quick Demo
+
+This repo now includes four components to demonstrate real-world readiness:
+- Privacy Masking: blur faces on frames before leaving the airframe.
+- Compute Profiling: measure model latency and blind travel distance.
+- Audit Logging: write flight records to TimescaleDB for tamper-evident audit.
+- Loss-of-Link Failsafe: auto-land if heartbeat is lost.
+
+Quick run:
+
+1) TimescaleDB stack
+```
+docker compose up --build -d
+```
+
+2) Privacy recording
+```
+& .\airsim-env\Scripts\python.exe .\airsim\record_images.py --out D:\datasets\airsim_synth --frames 200 --hz 5 --alt -5 --privacy --masks
+```
+
+3) Latency profile
+```
+& .\airsim-env\Scripts\python.exe .\scripts\compute_profiler.py --task seg --weights .\runs\unet_airsim\best.pt --speed_mps 5
+```
+
+4) Loss-of-Link monitor (run alongside autonomy)
+```
+& .\airsim-env\Scripts\python.exe .\airsim\loss_of_link_failsafe.py --timeout_s 5
+```
+
+## PX4 Teacher Brain (SITL – Advanced)
+
+Use MAVSDK Offboard to collect high-quality demonstrations in PX4 SITL:
+
+1) Start PX4 SITL (WSL recommended)
+```
+# In WSL Ubuntu
+git clone https://github.com/PX4/PX4-Autopilot
+cd PX4-Autopilot
+git checkout v1.14.3
+git submodule update --init --recursive
+
+# Preferred (if Gazebo packages available)
+make px4_sitl gz
+
+# Fallback (simple, reliable)
+make px4_sitl jmavsim
+```
+
+2) Collect advanced demos (waypoints + obstacle-aware yaw)
+```
+& .\.venv\Scripts\python.exe .\training\px4_teacher_collect_adv.py --system 127.0.0.1:14540 --waypoints .\training\px4_waypoints.json --out .\dataset\px4_teacher --duration 300 --hz 20 --alt 10 --base_speed 2 --max_speed 5 --yaw_rate_limit 45
+```
+
+3) Train the student
+```
+& .\.venv\Scripts\python.exe .\training\train_student_px4.py --data .\dataset\px4_teacher\telemetry_adv.csv --epochs 20 --bs 128 --out .\models\student_px4.pt
+```
+
+EKF2 GPS-denied config: see `px4_config/gps_denied.params` and `px4/README.md` for application steps.
+
+## GPU Setup (Windows, Conda)
+
+To ensure Torch uses your NVIDIA GPU, use the provided Conda setup:
+
+```powershell
+Set-Location "D:\docs\lesnar\Lesnar AI"
+.\u005cscripts\setup_gpu_env.ps1
+```
+
+This creates the `lesnar-ai-gpu` environment with CUDA 12.1, verifies CUDA via `scripts/verify_cuda.py`, and will train automatically if `dataset\px4_teacher\telemetry_adv.csv` exists.
+
+Troubleshooting:
+- If OpenCV fails to import with NumPy 2.x, pin NumPy to 1.26.4 in the Conda env.
+- If `gz` is unavailable on Ubuntu 24.04, use `jmavsim` for SITL.

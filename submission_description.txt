@@ -1,0 +1,17 @@
+**Submission Title:** Operation Sentinel: The Universal Cortex for GPS-Denied Autonomy
+
+**Abstract:**
+This submission presents "Operation Sentinel," a sovereign, morphology-agnostic autonomous system designed for resilient perimeter defense in contested environments. Unlike traditional platforms reliant on GNSS or constant human supervision, Sentinel utilizes a "Universal Cortex"—a deep reinforcement learning policy trained within the "Omniverse Engine," a procedurally infinite synthetic environment that simulates diverse biomes, weather conditions, and lighting to ensure robust zero-shot transfer to reality.
+
+**Key Technical Pillars:**
+1.  **Sovereign Autonomy:** Fully local compute (Edge AI) with zero cloud dependencies, ensuring operational security and immunity to jamming.
+2.  **The Universal Cortex:** A generalized visuomotor policy capable of adapting to varied drone bodies and environmental dynamics without retraining.
+3.  **Governance & Safety:** A dedicated "Reflex Layer" (PX4) enforces hard deterministic safety constraints, while the roadmap explicitly bounds the system to non-kinetic, surveillance-only applications.
+
+**Attached Artifacts:**
+*   **Technical Roadmap (Phase 1):** Detailed validation plan and risk register.
+*   **Architecture Verification:** Live system telemetry showing integration of PX4 SITL and AirSim physics.
+*   **Source Code:** Full implementation of the PPO agent, synthetic environment generators, and safety middleware.
+
+**Status:**
+Phase 1 (Foundation) Complete. Ready for feasibility validation.

@@ -133,3 +133,28 @@ If the overlay looks inverted (free vs obstacle), keep `--invert_mask` on. If yo
 - If masks look noisy, increase dataset size and vary viewpoints.
 - You can bump `--img_size` to 384 or 512 for better detail (ensure VRAM/RAM is sufficient).
 - If frames are too similar, increase movement patterns in the collector (strafe/yaw) or collect in different areas.
+
+## 9) PX4 Teacher Brain (SITL – Advanced)
+
+Collect high-quality demonstrations from PX4 SITL using MAVSDK Offboard and train a student policy.
+
+### Collect advanced teacher demos
+Requires PX4 SITL running (UDP:14540) and `mavsdk` installed in your Python env.
+
+```
+# Start PX4 SITL in WSL
+git clone https://github.com/PX4/PX4-Autopilot
+cd PX4-Autopilot
+make px4_sitl gazebo
+
+# Collect demos (Windows PowerShell)
+& .\.venv\Scripts\python.exe .\training\px4_teacher_collect_adv.py --system 127.0.0.1:14540 --waypoints .\training\px4_waypoints.json --out .\dataset\px4_teacher --duration 300 --hz 20 --alt 10 --base_speed 2 --max_speed 5 --yaw_rate_limit 45
+```
+
+### Train student from PX4 demos
+
+```
+& .\.venv\Scripts\python.exe .\training\train_student_px4.py --data .\dataset\px4_teacher\telemetry_adv.csv --epochs 20 --bs 128 --out .\models\student_px4.pt
+```
+
+For GPS-denied validation on hardware, apply EKF2 Optical Flow + Rangefinder params (see `px4_config/gps_denied.params`) and test hover stability.

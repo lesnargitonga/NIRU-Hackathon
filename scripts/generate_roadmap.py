@@ -1,5 +1,5 @@
 from reportlab.lib.pagesizes import LETTER
-from reportlab.platypus import BaseDocTemplate, Paragraph, Spacer, PageBreak, Frame, PageTemplate, Table, TableStyle
+from reportlab.platypus import BaseDocTemplate, Paragraph, Spacer, PageBreak, Frame, PageTemplate, Table, TableStyle, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.lib.units import inch
@@ -131,22 +131,32 @@ class RoadmapPDF:
         self.elements.append(Paragraph("OPERATION SENTINEL", self.styles['RoadmapTitle']))
         self.elements.append(Paragraph("Autonomous Perimeter Defense System", self.styles['RoadmapSubtitle']))
         
+        
+        # Submission Purpose
+        self.elements.append(Paragraph("<b>Submission Purpose:</b> Technical roadmap for feasibility validation and Phase-1 approval.", self.styles['RoadmapBullet']))
+        self.elements.append(Spacer(1, 10))
+
+        # Governance framing (Non-Operational)
+        governance_text = "<b>GOVERNANCE:</b> This roadmap focuses strictly on autonomous navigation, safety systems, and simulation-based learning. It explicitly excludes autonomous target selection or engagement logic. All test vectors remain within non-kinetic, surveillance-only parameters."
+        self.elements.append(Paragraph(governance_text, self.styles['MissionBox']))
+        self.elements.append(Spacer(1, 10))
+
         # Mission Statement Box
-        mission_text = "<b>MISSION OBJECTIVE:</b> Engineer a deployable, National Security-grade autonomous surveillance asset. This roadmap details the critical path from initial architecture to a fully sovereign, privacy-compliant unit capable of operating in GPS-denied environments."
+        mission_text = "<b>MISSION OBJECTIVE:</b> Engineer 'The Universal Cortex'—a morphology-agnostic, autonomous foundation model capable of operating in any environment. This roadmap details the evolution from a specialized perimeter defense unit to a sovereign, general-purpose autonomous agent trained on infinite procedural diversity."
         self.elements.append(Paragraph(mission_text, self.styles['MissionBox']))
         self.elements.append(Spacer(1, 20))
 
         # Phase 1
-        self.elements.append(Paragraph("PHASE 1: THE CORE FOUNDATION (Immediate - Jan 30)", self.styles['PhaseTitle']))
-        self.elements.append(Paragraph("<b>GOAL:</b> Validate Core Architecture (PX4-SITL Bridge) & System Design.", self.styles['RoadmapBody']))
+        self.elements.append(Paragraph("PHASE 1: THE DIGITAL TWIN (Immediate - Jan 30)", self.styles['PhaseTitle']))
+        self.elements.append(Paragraph("<b>GOAL:</b> Validate Core Architecture & Establish the 'Reality Gap' Baseline.", self.styles['RoadmapBody']))
         
         self.elements.append(Paragraph("Milestone 1: API Bridge & Protocol Validation", self.styles['DateHeader']))
         self.elements.append(Paragraph("• <b>Action:</b> Verify bi-directional MAVLink communication between Python Mission Control (AirSim API) and PX4 Flight Stack.", self.styles['RoadmapBullet']))
         self.elements.append(Paragraph("• <b>Metric:</b> Achieve stable command stream with <10ms round-trip latency.", self.styles['RoadmapBullet']))
 
         self.elements.append(Paragraph("Milestone 2: System Architecture Blueprinting", self.styles['DateHeader']))
-        self.elements.append(Paragraph("• <b>Action:</b> Define segregation of concerns: Real-time Flight Controller vs. High-Level AI Planner.", self.styles['RoadmapBullet']))
-        self.elements.append(Paragraph("• <b>Deliverable:</b> High-fidelity Architecture Diagram (ROS 2 / MAVROS node graph).", self.styles['RoadmapBullet']))
+        self.elements.append(Paragraph("• <b>Action:</b> Define segregation of concerns: Real-time Flight Controller vs. High-Level AI Planner (The Cortex).", self.styles['RoadmapBullet']))
+        self.elements.append(Paragraph("• <b>Deliverable:</b> System Architecture Validation (PX4/AirSim Telemetry) - <i>See Appendix A</i>.", self.styles['RoadmapBullet']))
 
         self.elements.append(Paragraph("Milestone 3: Compliance Logic & Synthetic Data", self.styles['DateHeader']))
         self.elements.append(Paragraph("• <b>Action:</b> Implement strict privacy-safe constraints. Use Synthetic Training Environment (STE) to eliminate PII risks.", self.styles['RoadmapBullet']))
@@ -158,15 +168,15 @@ class RoadmapPDF:
         self.elements.append(Paragraph("Final Step: SUBMIT TECHNICAL ROADMAP", self.styles['DateHeader']))
 
         # Phase 2
-        self.elements.append(Paragraph("PHASE 2: THE DATA ENGINE (Jan 31 – Feb 13)", self.styles['PhaseTitle']))
-        self.elements.append(Paragraph("<b>GOAL:</b> Scalable Data Pipeline & Procedural Environment Generation.", self.styles['RoadmapBody']))
+        self.elements.append(Paragraph("PHASE 2: THE OMNIVERSE ENGINE (Jan 31 – Feb 13)", self.styles['PhaseTitle']))
+        self.elements.append(Paragraph("<b>GOAL:</b> Infinite Diversity Generation. Train on Earth, Fly Anywhere.", self.styles['RoadmapBody']))
 
-        self.elements.append(Paragraph("Feb 1 - Feb 5: Procedural Stress Testing", self.styles['DateHeader']))
-        self.elements.append(Paragraph("• <b>Implementation:</b> Script random map generator (Perlin Noise) to spawn dense obstacle fields.", self.styles['RoadmapBullet']))
-        self.elements.append(Paragraph("• <b>Scale:</b> Execute overnight headless simulation runs. Accumulate 10,000+ collision events.", self.styles['RoadmapBullet']))
+        self.elements.append(Paragraph("Feb 1 - Feb 5: Procedural Diversity Pipeline", self.styles['DateHeader']))
+        self.elements.append(Paragraph("• <b>Implementation:</b> Script random map generator (Perlin Noise) to spawn dense obstacle fields, simulating diverse biomes (Urban, Forest, Subterranean).", self.styles['RoadmapBullet']))
+        self.elements.append(Paragraph("• <b>Scale:</b> Execute overnight headless simulation runs. Accumulate 10,000+ collision events across varied terrains.", self.styles['RoadmapBullet']))
 
-        self.elements.append(Paragraph("Feb 6 - Feb 10: High-Frequency Telemetry Pipeline", self.styles['DateHeader']))
-        self.elements.append(Paragraph("• <b>Implementation:</b> Configure PX4 ULog streaming to local time-series DB (PostgreSQL).", self.styles['RoadmapBullet']))
+        self.elements.append(Paragraph("Feb 6 - Feb 10: Environmental Stress Testing", self.styles['DateHeader']))
+        self.elements.append(Paragraph("• <b>Implementation:</b> Introduce stochastic weather patterns (Rain, Fog, Snow) and variable lighting conditions to force robust perception.", self.styles['RoadmapBullet']))
         self.elements.append(Paragraph("• <b>Auditability:</b> Capture IMU, LiDAR, and Control Actuator outputs at 50Hz for forensics.", self.styles['RoadmapBullet']))
 
         self.elements.append(Paragraph("Feb 11 - Feb 13: LiDAR-Based Navigation", self.styles['DateHeader']))
@@ -176,24 +186,24 @@ class RoadmapPDF:
         self.elements.append(PageBreak()) # Clean break for readability
 
         # Phase 3
-        self.elements.append(Paragraph("PHASE 3: FUNCTIONAL ALPHA (Feb 14 – Feb 27)", self.styles['PhaseTitle']))
-        self.elements.append(Paragraph("<b>GOAL:</b> Deploy Robust Visuomotor Policy (MVP).", self.styles['RoadmapBody']))
+        self.elements.append(Paragraph("PHASE 3: THE UNIVERSAL CORTEX (Feb 14 – Feb 27)", self.styles['PhaseTitle']))
+        self.elements.append(Paragraph("<b>GOAL:</b> Deploy a General-Purpose Visuomotor Policy (The Universal Brain).", self.styles['RoadmapBody']))
 
         self.elements.append(Paragraph("Feb 14 - Feb 20: Training the Recurrent Policy", self.styles['DateHeader']))
         self.elements.append(Paragraph("• <b>ML Architecture:</b> Train PPO agent with LSTM memory cells for state estimation.", self.styles['RoadmapBullet']))
         self.elements.append(Paragraph("• <b>Dataset:</b> Utilize 100k+ step synthetic dataset for Behavior Cloning warm-starting.", self.styles['RoadmapBullet']))
 
-        self.elements.append(Paragraph("Feb 21 - Feb 25: Disturbance Rejection", self.styles['DateHeader']))
-        self.elements.append(Paragraph("• <b>Test Setup:</b> Inject randomized wind vectors (up to 12 m/s) in Gazebo.", self.styles['RoadmapBullet']))
-        self.elements.append(Paragraph("• <b>Criterion:</b> Maintain trajectory within 0.5m corridor.", self.styles['RoadmapBullet']))
+        self.elements.append(Paragraph("Feb 21 - Feb 25: Morphology Agnostic Testing", self.styles['DateHeader']))
+        self.elements.append(Paragraph("• <b>Test Setup:</b> Validation of the policy on varying dynamic configurations (Standard Quad, Heavy Lift, Micro).", self.styles['RoadmapBullet']))
+        self.elements.append(Paragraph("• <b>Criterion:</b> Zero-shot transfer to new physical dynamics within 30 seconds.", self.styles['RoadmapBullet']))
 
         self.elements.append(Paragraph("Feb 26 - Feb 27: Containerization", self.styles['DateHeader']))
         self.elements.append(Paragraph("• <b>DevOps:</b> Encapsulate Simulation + Stack into monolithic Docker container.", self.styles['RoadmapBullet']))
         self.elements.append(Paragraph("• <b>Milestone:</b> 'Functional Alpha' Submission.", self.styles['RoadmapBullet']))
 
         # Phase 4
-        self.elements.append(Paragraph("PHASE 4: SECURITY & ASSURANCE (Feb 28 – Mar 13)", self.styles['PhaseTitle']))
-        self.elements.append(Paragraph("<b>GOAL:</b> Safety Critical Systems & Human-in-the-Loop.", self.styles['RoadmapBody']))
+        self.elements.append(Paragraph("PHASE 4: SOVEREIGN SHIELD (Feb 28 – Mar 13)", self.styles['PhaseTitle']))
+        self.elements.append(Paragraph("<b>GOAL:</b> Safety Critical Systems & Human-in-the-Loop Assurance.", self.styles['RoadmapBody']))
 
         self.elements.append(Paragraph("Feb 28 - Mar 5: Hardware Kill Switch", self.styles['DateHeader']))
         self.elements.append(Paragraph("• <b>Mechanism:</b> High-priority interrupt thread monitoring physical input.", self.styles['RoadmapBullet']))
@@ -207,8 +217,8 @@ class RoadmapPDF:
         self.elements.append(Paragraph("• <b>Milestone:</b> 'System Security' Submission.", self.styles['RoadmapBullet']))
 
         # Phase 5
-        self.elements.append(Paragraph("PHASE 5: THE X-FACTOR (Mar 14 – Mar 20)", self.styles['PhaseTitle']))
-        self.elements.append(Paragraph("<b>GOAL:</b> Sovereign Deployment & Production Pitch.", self.styles['RoadmapBody']))
+        self.elements.append(Paragraph("PHASE 5: HIVE MIND & EXPANSION (Mar 14 – Mar 20)", self.styles['PhaseTitle']))
+        self.elements.append(Paragraph("<b>GOAL:</b> Multi-Agent Coordination & Production Deployment.", self.styles['RoadmapBody']))
 
         self.elements.append(Paragraph("Mar 14 - Mar 17: Sovereignty Audit", self.styles['DateHeader']))
         self.elements.append(Paragraph("• <b>Claim:</b> 100% Local Compute. Zero cloud dependency. Air-gappable.", self.styles['RoadmapBullet']))
@@ -218,6 +228,42 @@ class RoadmapPDF:
         self.elements.append(Paragraph("• <b>HUD Overlay:</b> Post-process video with telemetry overlays.", self.styles['RoadmapBullet']))
 
         self.elements.append(Paragraph("Mar 20: FINAL PITCH", self.styles['DateHeader']))
+
+        self.elements.append(PageBreak())
+
+        # Risk Register
+        self.elements.append(Paragraph("KEY TECHNICAL RISKS & MITIGATIONS", self.styles['PhaseTitle']))
+        
+        self.elements.append(Paragraph("<b>Reality Gap Exceeds Tolerance</b>", self.styles['DateHeader']))
+        self.elements.append(Paragraph("• <b>Risk:</b> Simulation policy fails to stabilize on real hardware due to unmodeled dynamics.", self.styles['RoadmapBullet']))
+        self.elements.append(Paragraph("• <b>Mitigation:</b> Aggressive Domain Randomization (DR) + Synthetic Training Environment (STE) fine-tuning.", self.styles['RoadmapBullet']))
+
+        self.elements.append(Paragraph("<b>PPO Instability in Sparse Environments</b>", self.styles['DateHeader']))
+        self.elements.append(Paragraph("• <b>Risk:</b> Neural policy fails to converge for complex pathfinding.", self.styles['RoadmapBullet']))
+        self.elements.append(Paragraph("• <b>Mitigation:</b> Fallback to classical VFH+ planner if policy confidence < 0.7.", self.styles['RoadmapBullet']))
+
+        self.elements.append(Paragraph("<b>LiDAR Sparsity Failure</b>", self.styles['DateHeader']))
+        self.elements.append(Paragraph("• <b>Risk:</b> Thin obstacles (power lines, fences) missed by VLP-16 emulation.", self.styles['RoadmapBullet']))
+        self.elements.append(Paragraph("• <b>Mitigation:</b> Hybrid Policy Mode fusing depth camera tensor with LiDAR point cloud.", self.styles['RoadmapBullet']))
+        
+        self.elements.append(PageBreak())
+
+        # Appendix A
+        self.elements.append(Paragraph("APPENDIX A", self.styles['PhaseTitle']))
+        self.elements.append(Paragraph("<b>High-Fidelity Architecture Diagram</b>", self.styles['RoadmapBody']))
+        self.elements.append(Spacer(1, 20))
+        
+        # Placeholder for the image
+        # In a real scenario, correct usage: self.elements.append(Image("path/to/image.png", width=6*inch, height=4*inch))
+        image_path = "docs/visual_evidence.png"
+        try:
+            # Aspect ratio of the screenshot looks wide, fitting to page width
+            self.elements.append(Image(image_path, width=7*inch, height=4*inch))
+            self.elements.append(Paragraph("<i>Figure 1: Live System Telemetry - PX4 SITL & AirSim Integration</i>", self.styles['RoadmapBullet']))
+        except Exception as e:
+            print(f"Warning: Could not load image {image_path}: {e}")
+            diagram_placeholder_text = "[Visual Evidence Placeholder - PX4/AirSim]"
+            self.elements.append(Paragraph(diagram_placeholder_text, self.styles['MissionBox']))
 
 
     def build(self):
