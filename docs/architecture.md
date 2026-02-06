@@ -1,5 +1,7 @@
 # Architecture Design Document
 
+Last updated: 2026-02-06
+
 ## 1. System Overview
 
 Operation Sentinel employs a **Hybrid Cortex Architecture**, a control paradigm that decouples deterministic flight stability from stochastic mission planning.
@@ -52,6 +54,8 @@ The autonomous agent is a Neural Network trained via Proximal Policy Optimizatio
 -   **Bridge:** MAVSDK-Python acts as the translation layer, converting neural network outputs into MAVLink `SET_POSITION_TARGET_LOCAL_NED` messages.
 
 ## 3. Data Flow Architecture
+
+The following Mermaid diagram reflects the current PX4 + Gazebo + MAVSDK + PPO dataflow.
 
 ```mermaid
 graph LR
