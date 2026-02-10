@@ -1,5 +1,7 @@
 import argparse
 import csv
+import json
+import math
 from pathlib import Path
 
 import numpy as np
@@ -18,14 +20,33 @@ class Px4TeacherDataset(Dataset):
         X = []
         Y = []
         for row in rows:
-            # Features: vx, vy, vz, yaw_deg, rel_alt
-            X.append([
-                float(row["vx"]), float(row["vy"]), float(row["vz"]), float(row["yaw_deg"]), float(row["rel_alt"])
-            ])
-            # Targets: teacher_vx, teacher_vy, teacher_vz, teacher_yaw_deg
-            Y.append([
-                float(row["teacher_vx"]), float(row["teacher_vy"]), float(row["teacher_vz"]), float(row["teacher_yaw_deg"])
-            ])
+            # God-Mode schema:
+            # timestamp, lat, lon, rel_alt, vx, vy, vz, yaw,
+            # cmd_vx, cmd_vy, cmd_vz, cmd_yaw,
+            # lidar_min, lidar_json, goal_x, goal_y
+
+            # Parse lidar vector
+            lidar = json.loads(row["lidar_json"])
+            # Expect 72 beams (360° / 5°)
+            if not isinstance(lidar, list) or len(lidar) == 0:
+                continue
+
+            lidar = [float(v) for v in lidar]
+
+            rel_alt = float(row["rel_alt"])
+            yaw_deg = float(row["yaw"])
+            yaw_rad = math.radians(yaw_deg)
+
+            # Features: lidar + rel_alt + sin(yaw) + cos(yaw)
+            feat = lidar + [rel_alt, math.sin(yaw_rad), math.cos(yaw_rad)]
+
+            cmd_vx = float(row["cmd_vx"])
+            cmd_vy = float(row["cmd_vy"])
+            cmd_vz = float(row["cmd_vz"])
+            cmd_yaw = float(row["cmd_yaw"])
+
+            X.append(feat)
+            Y.append([cmd_vx, cmd_vy, cmd_vz, cmd_yaw])
         self.X = torch.tensor(np.array(X), dtype=torch.float32)
         self.Y = torch.tensor(np.array(Y), dtype=torch.float32)
 
@@ -37,7 +58,7 @@ class Px4TeacherDataset(Dataset):
 
 
 class StudentNet(nn.Module):
-    def __init__(self, in_dim=5, out_dim=4):
+    def __init__(self, in_dim=75, out_dim=4):
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(in_dim, 64), nn.ReLU(),
@@ -51,10 +72,10 @@ class StudentNet(nn.Module):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--data", type=str, default=str(Path("dataset/px4_teacher/telemetry.csv")))
+    ap.add_argument("--data", type=str, default=str(Path("dataset/px4_teacher/telemetry_god.csv")))
     ap.add_argument("--epochs", type=int, default=20)
     ap.add_argument("--bs", type=int, default=128)
-    ap.add_argument("--out", type=str, default=str(Path("models/student_px4.pt")))
+    ap.add_argument("--out", type=str, default=str(Path("models/student_px4_god.pt")))
     args = ap.parse_args()
 
     ds = Px4TeacherDataset(Path(args.data))

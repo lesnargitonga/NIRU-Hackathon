@@ -52,8 +52,9 @@ def haversine_m(lat1, lon1, lat2, lon2):
 
 async def collect(system_addr: str, out_dir: Path, waypoints_file: Path, duration: float, hz: float, alt_m: float,
                   base_speed: float, max_speed: float, yaw_rate_limit_deg_s: float):
-    drone = System(mavsdk_server_address=system_addr)
-    await drone.connect()
+    # Fix: system_addr is for MAVLink connection, not gRPC server address
+    drone = System()
+    await drone.connect(system_address=system_addr)
 
     print("Waiting for connection...")
     async for state in drone.core.connection_state():
@@ -122,7 +123,7 @@ async def collect(system_addr: str, out_dir: Path, waypoints_file: Path, duratio
             vx = float(vel.north_m_s)
             vy = float(vel.east_m_s)
             vz = float(vel.down_m_s)
-            yaw_deg = float(heading)
+            yaw_deg = float(heading.heading_deg)
 
             # Current waypoint target
             wp = wps[wp_idx]
