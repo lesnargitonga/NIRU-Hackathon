@@ -2,6 +2,12 @@
 
 This folder contains scripts to preprocess datasets, collect synthetic AirSim data, and train models for segmentation, supervised navigation, and RL.
 
+NOTE (important): the AirSim-based pipeline is **legacy** and the AirSim assets/env were moved under `legacy/`.
+- Legacy AirSim code: `legacy/airsim/`
+- Legacy AirSim Python env: `legacy/airsim-env/`
+
+The canonical submission workflow is PX4 + Gazebo in WSL2; see the root `README.md`.
+
 ## 1) Setup
 
 Install dependencies into your AirSim env (or a new venv):
@@ -67,6 +73,8 @@ Use your trained policy to compute actions from live frames and send with AirSim
 - Use `training/preprocess_datasets.py` to normalize all inputs.
 - Keep training logs in TensorBoard (`tensorboard --logdir runs`).# AirSim Segmentation Training (PyTorch)
 
+## AirSim Segmentation Training (PyTorch) (Legacy)
+
 End-to-end steps to train a UNet model from AirSim data and use it in autonomy.
 
 ## 1) Configure segmentation IDs in AirSim
@@ -75,7 +83,7 @@ In VS Code terminal (Unreal must be in Play):
 
 ```powershell
 Set-Location "D:\docs\lesnar\Lesnar AI"
-.\airsim-env\Scripts\python.exe .\airsim\setup_segmentation_ids.py
+.\legacy\airsim-env\Scripts\python.exe .\legacy\airsim\setup_segmentation_ids.py
 ```
 
 This sets free space (ground/road) to ID 0 and obstacles to ID 1.
@@ -84,10 +92,10 @@ This sets free space (ground/road) to ID 0 and obstacles to ID 1.
 
 ```powershell
 # Collect train split (moving)
-.\airsim-env\Scripts\python.exe .\training\collect_airsim_dataset.py --split train --count 1000 --move --sleep 0.05
+.\legacy\airsim-env\Scripts\python.exe .\training\collect_airsim_dataset.py --split train --count 1000 --move --sleep 0.05
 
 # Collect val split (stationary or slower)
-.\airsim-env\Scripts\python.exe .\training\collect_airsim_dataset.py --split val --count 200 --sleep 0.1
+.\legacy\airsim-env\Scripts\python.exe .\training\collect_airsim_dataset.py --split val --count 200 --sleep 0.1
 ```
 
 This creates:
@@ -102,7 +110,7 @@ dataset/
 ## 3) Train UNet (GPU if available)
 
 ```powershell
-.\airsim-env\Scripts\python.exe .\training\pytorch_unet.py --data .\dataset --img_size 256 256 --batch 8 --epochs 20 --classes 1 --out .\runs\unet_airsim --base 32
+.\legacy\airsim-env\Scripts\python.exe .\training\pytorch_unet.py --data .\dataset --img_size 256 256 --batch 8 --epochs 20 --classes 1 --out .\runs\unet_airsim --base 32
 ```
 
 Artifacts are saved under `runs\unet_airsim\`:
@@ -112,7 +120,7 @@ Artifacts are saved under `runs\unet_airsim\`:
 
 Optional: launch TensorBoard
 ```powershell
-.\airsim-env\Scripts\python.exe -m tensorboard --logdir .\runs\unet_airsim\tb
+.\legacy\airsim-env\Scripts\python.exe -m tensorboard --logdir .\runs\unet_airsim\tb
 ```
 
 ## 4) Use the trained model in autonomy
@@ -121,10 +129,10 @@ Point the autonomy or demo to your trained weights:
 
 ```powershell
 # Demo overlay
-.\airsim-env\Scripts\python.exe .\airsim\segmentation_demo.py --model .\runs\unet_airsim\best.pt --img_size 256 256 --invert_mask --avoid --auto_move
+.\legacy\airsim-env\Scripts\python.exe .\legacy\airsim\segmentation_demo.py --model .\runs\unet_airsim\best.pt --img_size 256 256 --invert_mask --avoid --auto_move
 
 # Full autonomy
-.\airsim-env\Scripts\python.exe .\airsim\segmentation_autonomy.py --model .\runs\unet_airsim\best.pt --img_size 256 256 --invert_mask --log_csv .\logs\seg_diag.csv
+.\legacy\airsim-env\Scripts\python.exe .\legacy\airsim\segmentation_autonomy.py --model .\runs\unet_airsim\best.pt --img_size 256 256 --invert_mask --log_csv .\logs\seg_diag.csv
 ```
 
 If the overlay looks inverted (free vs obstacle), keep `--invert_mask` on. If your masks are already 1=obstacle, you can omit it.

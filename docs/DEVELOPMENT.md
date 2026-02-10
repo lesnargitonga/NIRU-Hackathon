@@ -1,10 +1,12 @@
 # Development Manual
 
+NOTE: This document contains legacy Windows-centric notes. The canonical, submission-grade runbook is in the root `README.md` (WSL2 + PX4/Gazebo + Docker stack).
+
 ## 1. Environment Setup
 
 ### 1.1 Prerequisites
 -   **Language Runtimes**: Python 3.10+, Node.js 16+ (LTS).
--   **Platform**: Windows 10/11 (WSL2 optional but recommended for extensive simulation).
+-   **Platform**: Windows 10/11 + WSL2 (Ubuntu) for PX4/Gazebo simulation.
 -   **Build Tools**: CMake, Make, Visual Studio Build Tools (C++14).
 
 ### 1.2 Automated Initialization
@@ -15,9 +17,9 @@ The repository contains scripts to automate environment provisioning:
 .\bin\setup.bat
 ```
 
-This script provisions:
+This script provisions (legacy):
 1.  `backend-env`: Flask API and Core Logic.
-2.  `airsim-env`: Simulation and Reinforcement Learning libraries.
+2.  `airsim-env`: legacy AirSim environment (moved to `legacy/airsim-env`).
 3.  `frontend`: NPM dependencies for the dashboard.
 
 ---
@@ -25,7 +27,7 @@ This script provisions:
 ## 2. Operational Procedures
 
 ### 2.1 System Launch
-To initiate the full system stack (Simulation + AI + Dashboard):
+To initiate the legacy Windows-centric system stack (not the canonical WSL PX4/Gazebo flow):
 
 ```powershell
 .\bin\start_all.bat
@@ -36,6 +38,8 @@ For targeted development, services can be launched independently via `bin/`:
 -   `start_backend.bat`: REST API (Port 5000).
 -   `start_frontend.bat`: React Dashboard (Port 3000).
 -   `start_simulation.bat`: Standalone drone physics engine.
+
+For the canonical stack, use `docker compose up -d --build` (backend/redis/db) and `npm start` (frontend), then run PX4/Gazebo + the teacher in WSL as described in the root README.
 
 ---
 

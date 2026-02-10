@@ -18,9 +18,9 @@ function Settings() {
     enableCollisionAvoidance: true,
     
     // API Settings
-    apiHost: 'localhost',
+    apiHost: window.location.hostname || 'localhost',
     apiPort: 5000,
-    enableSSL: false,
+    enableSSL: window.location.protocol === 'https:',
     
     // UI Settings
     darkMode: false,
@@ -50,7 +50,7 @@ function Settings() {
       logLevel: String(logging.level ?? 'INFO'),
       enableWeatherCheck: Boolean(sim.weather_simulation ?? true),
       enableCollisionAvoidance: Boolean(sim.collision_detection ?? true),
-      apiHost: String(api.host ?? 'localhost'),
+      apiHost: String(api.host ?? window.location.hostname ?? 'localhost'),
       apiPort: Number(api.port ?? 5000),
       enableSSL: Boolean(api.enable_ssl ?? false),
       // UI-only settings remain as-is
@@ -154,7 +154,7 @@ function Settings() {
         logLevel: 'INFO',
         enableWeatherCheck: true,
         enableCollisionAvoidance: true,
-        apiHost: 'localhost',
+        apiHost: window.location.hostname || 'localhost',
         apiPort: 5000,
         enableSSL: false,
         darkMode: false,

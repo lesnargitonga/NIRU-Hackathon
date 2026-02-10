@@ -9,6 +9,11 @@ __pycache__/
 .vscode/
 .idea/
 
+# Secrets (never commit)
+.env
+.env.*
+!.env.example
+
 # Large binaries & External Deps (The "Heavy" stuff)
 externals/
 airsim/
@@ -26,6 +31,7 @@ lightning_logs/
 *.ulg
 *.bag
 *.npz
+*.log
 
 # Build artifacts
 build/

@@ -9,7 +9,7 @@
     "separation_distance": 10.0
   },
   "api_settings": {
-    "host": "0.0.0.0",
+    "host": "127.0.0.1",
     "port": 5000,
     "debug": false,
     "enable_cors": true

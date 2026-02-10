@@ -5,7 +5,7 @@ You are right. The project has pivoted from AirSim to PX4/Gazebo, but the codeba
 ## 🚩 Phase 1: Sanitation (The "Cleanup")
 **Goal:** Remove noise so you only see what matters.
 - [ ] Create a `legacy_airsim/` folder.
-- [ ] Move `airsim/` folder and `airsim-env/` into `legacy_airsim/`.
+- [ ] Move `airsim/` folder and `airsim-env/` into `legacy/`.
 - [ ] Move any `Lesnar AI 1/` duplicate folders to a `backup/` location or delete if safe.
 - [ ] Ensure the root only contains: `training`, `backend`, `frontend`, `docker`, and configuration.
 

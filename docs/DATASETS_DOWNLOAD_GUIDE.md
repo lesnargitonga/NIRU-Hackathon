@@ -7,7 +7,7 @@ This document outlines the procedures for acquiring, verifying, and organizing e
 
 The repository includes Python utilities for automated dataset management:
 -   **Location**: `datasets/`
--   **Execution Environment**: `airsim-env`
+-   **Execution Environment**: any Python env with required deps (legacy default was `legacy/airsim-env`).
 
 ### 2.1 Audit & Planning
 To verify existing datasets and generate a download plan:
@@ -15,7 +15,7 @@ To verify existing datasets and generate a download plan:
 ```powershell
 & "bin\audit_datasets.bat"
 ```
-*(Note: Ensure python path matches your setup, default is `airsim-env\Scripts\python.exe`)*
+*(Note: Ensure python path matches your setup; legacy default is `legacy\airsim-env\Scripts\python.exe`.)*
 
 ## 3. Acquisition Protocols
 

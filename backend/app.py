@@ -21,6 +21,7 @@ from pathlib import Path
 import logging
 import urllib.parse
 import urllib.request
+import redis
 
 from db import db, get_database_url, safe_log_command, Drone, Mission as MissionModel, MissionRun, safe_log_event
 
@@ -38,7 +39,7 @@ logger = logging.getLogger(__name__)
 
 # Initialize Flask app
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'lesnar-ai-secret-key'
+app.config['SECRET_KEY'] = (os.environ.get('FLASK_SECRET_KEY') or 'dev-secret').strip()
 app.config['SQLALCHEMY_DATABASE_URI'] = get_database_url()
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 CORS(app)
@@ -92,6 +93,9 @@ _START_TIME = _time.time()
 # If keys are unset, auth is disabled (keeps local non-docker usage working).
 _ADMIN_KEY = (os.environ.get('LESNAR_ADMIN_API_KEY') or '').strip()
 _OPERATOR_KEY = (os.environ.get('LESNAR_OPERATOR_API_KEY') or '').strip()
+
+_REDIS_HOST = (os.environ.get('REDIS_HOST') or '127.0.0.1').strip()
+_REDIS_PORT = int(os.environ.get('REDIS_PORT') or 6379)
 
 
 def _auth_enabled() -> bool:
@@ -260,6 +264,7 @@ def db_health():
         return jsonify({'success': False, 'status': 'error', 'error': str(e)}), 500
 
 @app.route('/api/drones', methods=['GET'])
+@require_role('operator')
 def get_drones():
     """Get list of all drones"""
     try:
@@ -277,6 +282,7 @@ def get_drones():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/drones/<drone_id>', methods=['GET'])
+@require_role('operator')
 def get_drone(drone_id):
     """Get specific drone state"""
     try:
@@ -403,6 +409,21 @@ def disarm_drone(drone_id):
         logger.error(f"Error disarming drone {drone_id}: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+
+def _publish_command(drone_id: str, action: str, params: dict | None = None) -> None:
+    """Publish a command to Redis for external agents (Teacher/real drones)."""
+    try:
+        r = redis.Redis(host=_REDIS_HOST, port=_REDIS_PORT, db=0, socket_timeout=2)
+        cmd = {
+            'drone_id': drone_id,
+            'action': action,
+            'params': params or {},
+            'timestamp': datetime.utcnow().isoformat(),
+        }
+        r.publish('commands', json.dumps(cmd))
+    except Exception as e:
+        logger.warning(f"Failed to publish Redis command ({action} -> {drone_id}): {e}")
+
 @app.route('/api/drones/<drone_id>/takeoff', methods=['POST'])
 @require_role('operator')
 def takeoff_drone(drone_id):
@@ -410,6 +431,9 @@ def takeoff_drone(drone_id):
     try:
         data = request.get_json() or {}
         altitude = data.get('altitude', 10.0)
+
+        # Always publish to Redis (Teacher/real drones).
+        _publish_command(drone_id, 'takeoff', {'altitude': altitude})
 
         if airsim_adapter is not None:
             success = airsim_adapter.takeoff(drone_id, altitude)
@@ -420,11 +444,12 @@ def takeoff_drone(drone_id):
                 'target_altitude': altitude,
                 'state': airsim_adapter.get_state(drone_id).to_dict() if airsim_adapter.get_state(drone_id) else {}
             })
-        
+
         drone = fleet.get_drone(drone_id)
         if not drone:
-            return jsonify({'success': False, 'error': 'Drone not found'}), 404
-        
+            # Redis-only drone: acknowledge command.
+            return jsonify({'success': True, 'message': f'Command published for {drone_id}', 'published': True})
+
         success = drone.takeoff(altitude)
         _try_audit(drone_id, 'takeoff', {'altitude': altitude}, bool(success), None if success else 'takeoff_failed')
         return jsonify({
@@ -433,7 +458,7 @@ def takeoff_drone(drone_id):
             'target_altitude': altitude,
             'state': drone.get_state().to_dict()
         })
-    
+
     except Exception as e:
         logger.error(f"Error takeoff drone {drone_id}: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -443,6 +468,9 @@ def takeoff_drone(drone_id):
 def land_drone(drone_id):
     """Land a drone"""
     try:
+        # Always publish to Redis (Teacher/real drones).
+        _publish_command(drone_id, 'land')
+
         if airsim_adapter is not None:
             success = airsim_adapter.land(drone_id)
             _try_audit(drone_id, 'land', None, success, None)
@@ -454,8 +482,8 @@ def land_drone(drone_id):
 
         drone = fleet.get_drone(drone_id)
         if not drone:
-            return jsonify({'success': False, 'error': 'Drone not found'}), 404
-        
+            return jsonify({'success': True, 'message': f'Command published for {drone_id}', 'published': True})
+
         success = drone.land()
         _try_audit(drone_id, 'land', None, bool(success), None if success else 'land_failed')
         return jsonify({
@@ -463,7 +491,7 @@ def land_drone(drone_id):
             'message': f'Drone {drone_id} {"landing" if success else "failed to land"}',
             'state': drone.get_state().to_dict()
         })
-    
+
     except Exception as e:
         logger.error(f"Error landing drone {drone_id}: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -473,27 +501,30 @@ def land_drone(drone_id):
 def goto_drone(drone_id):
     """Navigate drone to coordinates"""
     try:
-        data = request.get_json()
+        data = request.get_json() or {}
         latitude = data.get('latitude')
         longitude = data.get('longitude')
         altitude = data.get('altitude', 10.0)
-        
+
         if latitude is None or longitude is None:
             return jsonify({'success': False, 'error': 'latitude and longitude required'}), 400
-        
+
+        # Always publish to Redis (Teacher/real drones).
+        _publish_command(drone_id, 'goto', {'latitude': latitude, 'longitude': longitude, 'altitude': altitude})
+
         if airsim_adapter is not None:
-             success = airsim_adapter.goto(drone_id, latitude, longitude, altitude)
-             _try_audit(drone_id, 'goto', {'latitude': latitude, 'longitude': longitude, 'altitude': altitude}, success, None)
-             return jsonify({
+            success = airsim_adapter.goto(drone_id, latitude, longitude, altitude)
+            _try_audit(drone_id, 'goto', {'latitude': latitude, 'longitude': longitude, 'altitude': altitude}, success, None)
+            return jsonify({
                 'success': success,
                 'message': f'Drone {drone_id} sent to ({latitude}, {longitude})',
                 'target': {'latitude': latitude, 'longitude': longitude, 'altitude': altitude},
                 'state': airsim_adapter.get_state(drone_id).to_dict() if airsim_adapter.get_state(drone_id) else {}
-             })
+            })
 
         drone = fleet.get_drone(drone_id)
         if not drone:
-            return jsonify({'success': False, 'error': 'Drone not found'}), 404
+            return jsonify({'success': True, 'message': f'Command published for {drone_id}', 'published': True})
         
         success = drone.goto(latitude, longitude, altitude)
         _try_audit(drone_id, 'goto', {'latitude': latitude, 'longitude': longitude, 'altitude': altitude}, bool(success), None if success else 'goto_failed')
@@ -574,6 +605,7 @@ def execute_mission(drone_id):
 
 
 @app.route('/api/missions/active', methods=['GET'])
+@require_role('operator')
 def get_active_missions():
     """Get list of active/paused missions."""
     try:
@@ -708,6 +740,7 @@ def emergency_land_all():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/telemetry', methods=['GET'])
+@require_role('operator')
 def get_telemetry():
     """Get current telemetry data"""
     try:
@@ -729,6 +762,7 @@ def get_telemetry():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/obstacles', methods=['GET'])
+@require_role('operator')
 def get_obstacles():
     """Get static obstacles GeoJSON"""
     try:
@@ -793,6 +827,7 @@ def geocode_reverse():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/health', methods=['GET'])
+@require_role('operator')
 def health():
     """Return a minimal health report for the backend service."""
     try:
@@ -875,6 +910,7 @@ def health():
         return jsonify({'status': 'error', 'error': str(e)}), 500
 
 @app.route('/api/config', methods=['GET'])
+@require_role('admin')
 def get_config():
     """Return current repo config.json contents."""
     try:
@@ -890,6 +926,7 @@ def get_config():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/config', methods=['POST'])
+@require_role('admin')
 def update_config():
     """Update config.json safely with minimal validation."""
     try:
@@ -1040,6 +1077,80 @@ def stop_telemetry_broadcast():
     telemetry_running = False
     logger.info("Telemetry broadcasting stopped")
 
+# --- Redis Bridge ---
+redis_bridge_thread = None
+redis_bridge_running = False
+
+def redis_bridge_loop():
+    """Listen for telemetry from external agents (Teacher/Sentinel)."""
+    global redis_bridge_running
+    r = None
+    pubsub = None
+
+    while redis_bridge_running:
+        try:
+            if r is None:
+                r = redis.Redis(host=_REDIS_HOST, port=_REDIS_PORT, db=0, socket_timeout=5)
+                pubsub = r.pubsub()
+                pubsub.subscribe('telemetry')
+                logger.info(f"Redis Bridge connected ({_REDIS_HOST}:{_REDIS_PORT}). Listening for telemetry...")
+            
+            message = pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+            if message and message['type'] == 'message':
+                try:
+                    raw = message.get('data')
+                    if isinstance(raw, (bytes, bytearray)):
+                        raw = raw.decode('utf-8', errors='replace')
+                    data = json.loads(raw)
+                    drone_id = data.get('drone_id')
+                    if drone_id:
+                         # Ensure drone exists
+                        if not fleet.get_drone(drone_id):
+                            logger.info(f"Discovered external drone via Redis: {drone_id}")
+                            # Auto-add to DB so it persists
+                            with app.app_context():
+                                _db_upsert_drone(drone_id, (data.get('latitude',0), data.get('longitude',0), 0))
+                            # Add to fleet but stop internal sim loop immediately.
+                            fleet.add_drone(drone_id, (data.get('latitude', 0), data.get('longitude', 0), data.get('altitude', 0)))
+                            try:
+                                d = fleet.get_drone(drone_id)
+                                if d is not None:
+                                    d.stop_simulation()
+                            except Exception:
+                                pass
+                    
+                    drone = fleet.get_drone(drone_id)
+                    if drone:
+                        # Update state directly (Source of Truth is now Redis)
+                        drone.position = [
+                            float(data.get('latitude', drone.position[0])),
+                            float(data.get('longitude', drone.position[1])),
+                            float(data.get('altitude', drone.position[2]))
+                        ]
+                        drone.heading = float(data.get('heading', drone.heading))
+                        drone.speed = float(data.get('speed', drone.speed))
+                        if 'battery' in data: drone.battery = float(data['battery'])
+                        if 'armed' in data: drone.armed = bool(data['armed'])
+                        if 'mode' in data: drone.mode = str(data['mode'])
+                        # Ensure internal sim loop stays stopped.
+                        drone.running = False
+                except Exception as e:
+                    logger.debug(f"bad telemetry packet: {e}")
+        except redis.ConnectionError:
+            if r: logger.warning("Redis connection lost. Retrying...")
+            r = None
+            time.sleep(5)
+        except Exception as e:
+            logger.error(f"Redis Bridge error: {e}")
+            time.sleep(1)
+
+def start_redis_bridge():
+    global redis_bridge_thread, redis_bridge_running
+    if redis_bridge_running: return
+    redis_bridge_running = True
+    redis_bridge_thread = threading.Thread(target=redis_bridge_loop, daemon=True)
+    redis_bridge_thread.start()
+
 # Initialize some demo drones
 def initialize_demo_fleet():
     """Initialize demo drones for testing"""
@@ -1083,11 +1194,14 @@ if __name__ == '__main__':
     print("-" * 40)
     
     # Initialize demo fleet
-    initialize_demo_fleet()
-    
+    # initialize_demo_fleet()
+
     # Start telemetry broadcasting
     start_telemetry_broadcast()
     
+    # Start Redis Bridge (Input from Teacher)
+    start_redis_bridge()
+
     try:
         # Run the Flask-SocketIO server
         allow_unsafe_werkzeug = os.environ.get("ALLOW_UNSAFE_WERKZEUG", "1") == "1"
@@ -1102,7 +1216,8 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
         print("\nShutting down server...")
         stop_telemetry_broadcast()
-        
+        redis_bridge_running = False
+
         # Clean up drones
         for drone_id in list(fleet.drones.keys()):
             fleet.remove_drone(drone_id)

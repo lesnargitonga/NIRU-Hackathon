@@ -3,12 +3,20 @@ import argparse
 import csv
 import json
 import math
+import os
 import time
 import heapq
 import numpy as np
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from datetime import datetime, timezone
+
+try:
+    import redis.asyncio as redis
+    import redis as sync_redis
+except ImportError:
+    redis = None
+    sync_redis = None
 
 try:
     # Only needed for online / PX4 mode
@@ -316,10 +324,30 @@ async def collect_data(args):
     grid = GridMap(world_map.obstacles, resolution=1.0, margin=1.5)
     log("--> Grid ready.")
 
-    drone = System(
-        mavsdk_server_address=args.mavsdk_server,
-        port=args.mavsdk_port,
-    )
+    # --- Redis Setup (Bridge) ---
+    redis_client = None
+    redis_pubsub = None
+    
+    if redis:
+        try:
+            redis_client = redis.Redis(host=args.redis_host, port=args.redis_port, db=0)
+            await redis_client.ping()
+            # Subscribe to commands
+            redis_pubsub = redis_client.pubsub()
+            await redis_pubsub.subscribe('commands')
+            log(f"--> Redis connected (Bridge Established) at {args.redis_host}:{args.redis_port}")
+        except Exception as e:
+            log(f"!! Redis Bridge Failed: {e}")
+            redis_client = None
+
+    # If mavsdk_server is set to 'auto', let mavsdk-python manage/spawn it.
+    if (args.mavsdk_server or '').strip().lower() in ('auto', ''):
+        drone = System()
+    else:
+        drone = System(
+            mavsdk_server_address=args.mavsdk_server,
+            port=args.mavsdk_port,
+        )
     addr = args.system
     if "://" not in addr:
         addr = f"udpin://{addr}"
@@ -532,6 +560,84 @@ async def collect_data(args):
                 goal_x,
                 goal_y,
             ]
+
+            # --- Redis Bridge Publish ---
+            if redis_client:
+                # 1. Publish Telemetry
+                telemetry_data = {
+                    "drone_id": args.drone_id,
+                    "latitude": dstate.lat,
+                    "longitude": dstate.lon,
+                    "altitude": dstate.rel_alt,
+                    "heading": dstate.yaw,
+                    "speed": math.sqrt(dstate.vx**2 + dstate.vy**2),
+                    "battery": 99.0,
+                    "armed": True,
+                    "mode": "TEACHER_BRIDGE",
+                    "timestamp": datetime.now(timezone.utc).isoformat()
+                }
+                try:
+                    await redis_client.publish('telemetry', json.dumps(telemetry_data))
+                except Exception:
+                    pass
+                
+                # 2. Check Commands
+                try:
+                    while True:
+                        message = await redis_pubsub.get_message(ignore_subscribe_messages=True, timeout=0.01)
+                        if message and message['type'] == 'message':
+                            raw = message.get('data')
+                            if isinstance(raw, (bytes, bytearray)):
+                                raw = raw.decode('utf-8', errors='replace')
+                            payload = json.loads(raw)
+                            if (payload.get('drone_id') or '').strip() not in ('', args.drone_id):
+                                continue
+                            
+                            action = payload.get('action')
+                            log(f"--> Received Command: {action}")
+                            
+                            if action == 'takeoff':
+                                try:
+                                    await drone.action.arm()
+                                    await drone.action.takeoff()
+                                except Exception as e:
+                                    log(f"!! Takeoff failed: {e}")
+
+                            elif action == 'land':
+                                try:
+                                    await drone.action.land()
+                                    # Break the loop if landing? Optional.
+                                except Exception as e:
+                                    log(f"!! Land failed: {e}")
+
+                            elif action == 'goto':
+                                # Global (Lat/Lon) -> Local (North/East) relative to current
+                                # Simple approximation for small localized missions
+                                target_lat = float(payload['params']['latitude'])
+                                target_lon = float(payload['params']['longitude'])
+                                
+                                # Current
+                                lat0, lon0 = dstate.lat, dstate.lon
+                                px0, py0 = get_local_pos()
+                                
+                                # Delta
+                                dLat = target_lat - lat0
+                                dLon = target_lon - lon0
+                                
+                                # Meters
+                                dy = dLat * 111319.0
+                                dx = dLon * 111319.0 * math.cos(math.radians(lat0))
+                                
+                                new_x = px0 + dx
+                                new_y = py0 + dy
+                                
+                                log(f"--> Override Goal: {new_x:.1f}, {new_y:.1f}")
+                                goal_x, goal_y = new_x, new_y
+                                current_path = [] # Trigger replan
+                                
+                except Exception as e:
+                    pass
+
             writer.writerow(row)
     finally:
         try:
@@ -692,6 +798,7 @@ def collect_data_offline(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("--drone-id", type=str, default=os.environ.get("DRONE_ID", "SENTINEL-01"))
     parser.add_argument("--out", type=str, default="dataset/px4_teacher/telemetry_god.csv")
     parser.add_argument("--system", type=str, default="udpin://0.0.0.0:14540")
     parser.add_argument("--duration", type=float, default=300.0)
@@ -700,132 +807,27 @@ if __name__ == "__main__":
     parser.add_argument("--base_speed", type=float, default=3.0)
     parser.add_argument("--max_speed", type=float, default=8.0)
     parser.add_argument("--yaw_rate_limit", type=float, default=40.0)
-    parser.add_argument("--sdf_path", type=str, default=r"d:\docs\lesnar\Lesnar AI\obstacles.sdf")
+    parser.add_argument("--sdf_path", type=str, default=os.environ.get("SDF_PATH", "obstacles.sdf"))
     parser.add_argument("--offline", action="store_true", help="Run without PX4/Gazebo (pure Python)")
-    parser.add_argument("--mavsdk-server", type=str, default="127.0.0.1")
-    parser.add_argument("--mavsdk-port", type=int, default=50051)
+    parser.add_argument(
+        "--mavsdk-server",
+        type=str,
+        default=os.environ.get("MAVSDK_SERVER", "auto"),
+        help="MAVSDK server host. Use 'auto' to let mavsdk-python spawn/manage it.",
+    )
+    parser.add_argument(
+        "--mavsdk-port",
+        type=int,
+        default=int(os.environ.get("MAVSDK_PORT", 50051)),
+        help="MAVSDK server port (ignored when --mavsdk-server auto).",
+    )
+    parser.add_argument("--redis-host", type=str, default="127.0.0.1")
+    parser.add_argument("--redis-port", type=int, default=6379)
 
     args = parser.parse_args()
     if args.offline:
         collect_data_offline(args)
     else:
         asyncio.run(collect_data(args))
-                # Ensure it's far enough
-                curr_x, curr_y = get_local_pos()
-                dist = math.sqrt((wx-curr_x)**2 + (wy-curr_y)**2)
-                if dist > 30: # Long missions
-                    return wx, wy
 
-    # Initial Goal
-    goal_x, goal_y = pick_new_goal()
-    print(f"First Goal: {goal_x:.1f}, {goal_y:.1f}")
-
-    while True:
-        elapsed = time.time() - start_time
-        if elapsed > args.duration: break
-        
-        # 1. Loop Timing
-        now = time.time()
-        dt = now - last_step
-        if dt < 0.1:
-            await asyncio.sleep(0.01)
-            continue
-        last_step = now
-        
-        px, py = get_local_pos()
-        
-        # 2. Path Planning Check
-        if not current_path or path_index >= len(current_path):
-            print(f"Planning A* to {goal_x:.0f},{goal_y:.0f}...")
-            # Plan from current pos to goal
-            path = astar(grid, (px, py), (goal_x, goal_y))
-            if not path:
-                print("Path failed! Picking new goal.")
-                goal_x, goal_y = pick_new_goal()
-                continue
-            
-            # Subsample path (Teacher can smooth it)
-            # A* returns all grid cells, we can skip some
-            current_path = path[::2] + [path[-1]]
-            path_index = 0
-            print(f"Path found! {len(current_path)} waypoints")
-
-        # 3. Path Following (Pure Pursuit)
-        # Look ahead
-        lookahead_dist = 4.0
-        target_pt = current_path[path_index]
-        
-        # Find point on path ahead of us
-        for i in range(path_index, len(current_path)):
-            pt = current_path[i]
-            d = math.sqrt((pt[0]-px)**2 + (pt[1]-py)**2)
-            if d > lookahead_dist:
-                target_pt = pt
-                path_index = i # Advance index
-                break
-            
-            # If we are close to end
-            if i == len(current_path) - 1 and d < 2.0:
-                # Goal reached
-                print("Goal Reached! New Goal...")
-                goal_x, goal_y = pick_new_goal()
-                current_path = []
-                break
-        
-        if not current_path: continue # Re-plan next loop
-        
-        # Drive to target_pt
-        tx, ty = target_pt
-        dx = tx - px
-        dy = ty - py
-        dist = math.sqrt(dx*dx + dy*dy)
-        
-        desired_speed = args.max_speed
-        
-        # Simple P-Control for Velocity
-        # Normalize direction
-        vx_cmd = (dx / dist) * desired_speed if dist > 0 else 0
-        vy_cmd = (dy / dist) * desired_speed if dist > 0 else 0
-        
-        # Yaw slightly towards target
-        target_yaw = math.degrees(math.atan2(dy, dx))
-        diff = shortest_diff(dstate.yaw, target_yaw)
-        
-        # 4. Simulate Sensors (For the Dataset)
-        sim_lidar = world_map.simulate_lidar(px, py, dstate.rel_alt, dstate.yaw)
-        min_dist = np.min(sim_lidar)
-        
-        # 5. Command
-        await drone.offboard.set_velocity_ned(VelocityNedYaw(vx_cmd, vy_cmd, 0.0, dstate.yaw + diff))
-        
-        # 6. Log
-        row = [
-            time.time(), dstate.lat, dstate.lon, dstate.rel_alt,
-            dstate.vx, dstate.vy, dstate.vz, dstate.yaw,
-            vx_cmd, vy_cmd, 0.0, 0.0, min_dist, json.dumps(sim_lidar.tolist()), goal_x, goal_y
-        ]
-
-        writer.writerow(row)
-        
-    await drone.action.land()
-    print("Done!")
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--out", type=str, default="dataset/px4_teacher/telemetry_god.csv")
-    parser.add_argument("--system", type=str, default="udpin://0.0.0.0:14540")
-    parser.add_argument("--duration", type=float, default=300.0)
-    parser.add_argument("--alt", type=float, default=15.0)
-    parser.add_argument("--hz", type=float, default=20.0)
-    parser.add_argument("--base_speed", type=float, default=3.0)
-    parser.add_argument("--max_speed", type=float, default=8.0)
-    parser.add_argument("--yaw_rate_limit", type=float, default=40.0)
-    parser.add_argument("--sdf_path", type=str, default=r"d:\docs\lesnar\Lesnar AI\obstacles.sdf")
-    parser.add_argument("--offline", action="store_true", help="Run without PX4/Gazebo (pure Python)")
-    
-    args = parser.parse_args()
-    if args.offline:
-        collect_data_offline(args)
-    else:
-        asyncio.run(collect_data(args))
 
