@@ -75,6 +75,36 @@ To sequence the full system (Simulation, AI Agent, and Command Dashboard):
 3.  **Mission Control**: Launches the React-based tactical dashboard.
 4.  **Autonomy Core**: Engages the PPO decision engine.
 
+## 🚀 Teacher Mode ("God Mode") - WSL Workflow
+
+For high-fidelity data collection and visual demonstration, we use a "God Mode" script that runs inside WSL (Ubuntu) to bypass Windows network isolation. This controls the PX4 Soft-In-The-Loop (SITL) drone with perfect A* pathfinding.
+
+**Prerequisites:**
+*   Repo cloned/copied into WSL filesystem (e.g., `~/lesnar/LesnarAI`).
+*   Python 3 environment in WSL (`.venv_wsl`) with `mavsdk` and `numpy`.
+*   PX4 Autopilot running in WSL.
+
+**Running the Stable Drone:**
+
+1.  **Open Project in WSL-Attached VS Code**  
+    `Ctrl+Shift+P` -> `Remote-WSL: New Window` -> Open Folder `~/lesnar/LesnarAI`.
+
+2.  **Terminal 1: The Bridge (MAVSDK Server)**  
+    This connects the simulation to the Python code.
+    ```bash
+    cd ~/lesnar/LesnarAI
+    source .venv_wsl/bin/activate
+    mavsdk_server -p 50051 udpin://0.0.0.0:14540
+    ```
+
+3.  **Terminal 2: The Brain (Teacher Script)**  
+    This executes the pathfinding and flight control.
+    ```bash
+    cd ~/lesnar/LesnarAI
+    source .venv_wsl/bin/activate
+    python training/px4_teacher_collect_gz.py --system 0.0.0.0:14540 --mavsdk-server 127.0.0.1 --mavsdk-port 50051 --duration 300
+    ```
+
 ## Project Structure
 
 ```text
